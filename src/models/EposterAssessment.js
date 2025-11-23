@@ -4,24 +4,26 @@ const eposterAssessmentSchema = new mongoose.Schema({
     abstractId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "Eposter",
-        required: true,
-        unique: true       // ❗ Only one assessment per poster
+        required: true
     },
     judgeId: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: "Admin", 
-        required: true     // Store reference of judge who scored
+        ref: "Admin",
+        required: true
     },
     scores: {
-        researchTopic: { type: Number, required: true },
-        methods: { type: Number, required: true },
-        results: { type: Number, required: true },
-        presentation: { type: Number, required: true },
-        qa: { type: Number, required: true }
+        researchTopic: Number,
+        methods: Number,
+        results: Number,
+        presentation: Number,
+        qa: Number
     },
     comments: String,
     createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date }
+    updatedAt: Date
 });
+
+// 🔥 One admin can judge a poster only once
+eposterAssessmentSchema.index({ abstractId: 1, judgeId: 1 }, { unique: true });
 
 export default mongoose.model("EposterAssessment", eposterAssessmentSchema);

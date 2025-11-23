@@ -17,5 +17,6 @@ const presentationAssessmentSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     updatedAt: Date
 });
+presentationAssessmentSchema.index({ abstractId: 1, judgeId: 1 }, { unique: true });
 
 export default mongoose.model("PresentationAssessment", presentationAssessmentSchema);

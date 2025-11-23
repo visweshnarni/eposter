@@ -5,6 +5,7 @@ import PresentationAssessment from "../models/PresentationAssessment.js";
 
 export const getAllAbstracts = async (req, res) => {
     try {
+        const adminId = req.admin._id;
         const { type, track, hall, sort, search, judged } = req.query;
 
         // Fetch all abstracts
@@ -13,17 +14,17 @@ export const getAllAbstracts = async (req, res) => {
             Presentation.find()
         ]);
 
-        // Fetch ALL assessments (NOT judge based)
-        const [eposterAssessments, presentationAssessments] = await Promise.all([
-            EposterAssessment.find(),
-            PresentationAssessment.find()
+        // 🔥 Fetch ONLY assessments by THIS admin
+        const [myEposterScores, myPresentationScores] = await Promise.all([
+            EposterAssessment.find({ judgeId: adminId }).select("abstractId"),
+            PresentationAssessment.find({ judgeId: adminId }).select("abstractId")
         ]);
 
-        // Create lookup maps
-        const eposterDoneMap = new Set(eposterAssessments.map(a => a.abstractId.toString()));
-        const presentationDoneMap = new Set(presentationAssessments.map(a => a.abstractId.toString()));
+        // Convert to lookup
+        const myEposterMap = new Set(myEposterScores.map(a => a.abstractId.toString()));
+        const myPresentationMap = new Set(myPresentationScores.map(a => a.abstractId.toString()));
 
-        // Merge abstracts
+        // Merge result
         let merged = [
             ...eposters.map(e => ({
                 id: e._id,
@@ -33,7 +34,7 @@ export const getAllAbstracts = async (req, res) => {
                 track: e.track,
                 hall: null,
                 type: "eposter",
-                isJudged: eposterDoneMap.has(e._id.toString())
+                isJudged: myEposterMap.has(e._id.toString())   // 🔥 admin-specific
             })),
             ...presentations.map(p => ({
                 id: p._id,
@@ -43,32 +44,17 @@ export const getAllAbstracts = async (req, res) => {
                 track: p.track,
                 hall: p.hall,
                 type: "presentation",
-                isJudged: presentationDoneMap.has(p._id.toString())
+                isJudged: myPresentationMap.has(p._id.toString())  // 🔥 admin-specific
             }))
         ];
 
-        // Filter type
+        // filters (same as before)
         if (type) merged = merged.filter(i => i.type === type);
-
-        // Filter by track
-        if (track) {
-            merged = merged.filter(i =>
-                i.track?.toLowerCase().includes(track.toLowerCase())
-            );
-        }
-
-        // Filter by hall
-        if (hall) {
-            merged = merged.filter(i =>
-                i.hall?.toLowerCase() === hall.toLowerCase()
-            );
-        }
-
-        // Filter by judged / unjudged
+        if (track) merged = merged.filter(i => i.track?.toLowerCase().includes(track.toLowerCase()));
+        if (hall) merged = merged.filter(i => i.hall?.toLowerCase() === hall.toLowerCase());
         if (judged === "true") merged = merged.filter(i => i.isJudged === true);
         if (judged === "false") merged = merged.filter(i => i.isJudged === false);
 
-        // Searching
         if (search) {
             const q = search.toLowerCase();
             merged = merged.filter(i =>
@@ -79,7 +65,7 @@ export const getAllAbstracts = async (req, res) => {
             );
         }
 
-        // Sorting
+        // sorting
         if (sort === "asc") merged.sort((a, b) => a.abstractNo - b.abstractNo);
         else if (sort === "desc") merged.sort((a, b) => b.abstractNo - a.abstractNo);
         else if (sort === "alpha") merged.sort((a, b) => a.title.localeCompare(b.title));
@@ -92,8 +78,6 @@ export const getAllAbstracts = async (req, res) => {
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: "Failed to fetch abstracts", error: err });
+        res.status(500).json({ message: "Failed to fetch abstracts" });
     }
 };
-
-
